@@ -683,7 +683,7 @@
   function populateBrandFilter(){
     var sel = document.getElementById("filterBrand");
     var current = sel.value;
-    var brands = Array.from(new Set(catalog.map(function(p){ return p.brand; }))).sort();
+    var brands = Array.from(new Set(catalog.filter(function(p){ return p.price > 0; }).map(function(p){ return p.brand; }))).sort();
     sel.innerHTML = '<option value="">Toutes</option>' + brands.map(function(b){ return '<option value="'+b+'">'+b+'</option>'; }).join("");
     sel.value = current;
   }
@@ -705,6 +705,7 @@
     var hasBudget = !isNaN(budget) && budget > 0;
 
     var list = catalog.filter(function(p){
+      if(!(p.price > 0)) return false; // articles "brouillon" (prix pas encore renseigné) : masqués côté public
       if(cat && p.category !== cat) return false;
       if(brand && p.brand !== brand) return false;
       if(hasBudget && p.price > budget) return false;
