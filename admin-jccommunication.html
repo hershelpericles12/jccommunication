@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Administration — J.C Communication</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ===== Système de design : identique au site public ===== */
+  :root{
+    --bg:#0d0b08; --bg-elevated:#15120d; --bg-card:#1a1611; --line:#2c261c;
+    --text:#f3ece0; --text-2:#b8aa90; --text-3:#8c7f69;
+    --accent:#c9a44c; --accent-strong:#dbb85f; --on-accent:#1a1508;
+    --ok:#4ade80; --err:#f87171;
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s7:32px; --s8:40px; --s9:48px; --s10:64px;
+    --r-sm:8px; --r-md:14px; --r-pill:999px;
+    --shadow-1:0 4px 16px rgba(0,0,0,.28);
+    --shadow-2:0 16px 48px rgba(0,0,0,.45);
+    --font-title:'Sora', system-ui, sans-serif;
+    --font-text:'Manrope', system-ui, sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{max-width:100%; overflow-x:hidden;}
+  body{background:var(--bg); color:var(--text); font-family:var(--font-text); line-height:1.6; font-variant-numeric:tabular-nums; -webkit-font-smoothing:antialiased;}
+  h1,h2,h3{font-family:var(--font-title);}
+  a{color:inherit; text-decoration:none;}
+  button{font-family:inherit; cursor:pointer; border:none;}
+  input,select{font-family:inherit;}
+  [hidden]{display:none !important;}
+  .num{font-variant-numeric:tabular-nums;}
+  .sr-only{position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;}
+  a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+
+  /* ===== éléments de formulaire communs ===== */
+  #authChecking{min-height:100vh; display:flex; align-items:center; justify-content:center; color:var(--text-3); font-size:14px;}
+  .form-field{margin-bottom:var(--s4);}
+  .form-field label, .field-label{display:block; font-size:13px; font-weight:600; color:var(--text-2); margin-bottom:var(--s2);}
+  .form-field input, .form-field select{width:100%; min-height:44px; background:var(--bg); border:1px solid var(--line); border-radius:var(--r-sm); color:var(--text); padding:var(--s3) var(--s4); font-size:14px;}
+  .form-field input:focus, .form-field select:focus{border-color:var(--accent);}
+  .form-error{font-size:13px; color:var(--err); margin-top:calc(var(--s2) * -1); margin-bottom:var(--s3); display:none;}
+  .btn-primary{width:100%; min-height:44px; padding:var(--s3) var(--s4); background:var(--accent); color:var(--on-accent); border-radius:var(--r-sm); font-weight:700; font-size:14px; transition:background .2s ease;}
+  .btn-primary:hover{background:var(--accent-strong);}
+
+  /* ===== écran de connexion : scène « lampe à tirer » ===== */
+  #loginGate{
+    display:none; position:relative; min-height:100vh; min-height:100dvh;
+    overflow:hidden; isolation:isolate; color:var(--text);
+    background:radial-gradient(ellipse at 28% 22%, var(--bg-card) 0%, var(--bg) 62%);
+  }
+  #loginGate.show{display:flex; flex-direction:column; align-items:center; gap:var(--s2); padding:var(--s4) var(--s4) var(--s7);}
+
+  /* couches de lumière */
+  .scene-ambient, .scene-beam, .scene-dust{position:absolute; inset:0; pointer-events:none;}
+  .scene-ambient{
+    z-index:0; opacity:0; transform-origin:var(--mx,30%) var(--my,20%);
+    transition:opacity 1.1s ease, transform 1.2s ease;
+    background:
+      radial-gradient(ellipse 70% 55% at var(--mx,30%) var(--my,20%), rgba(255,190,100,.20), transparent 70%),
+      radial-gradient(ellipse 60% 50% at var(--ax,50%) var(--ay,60%), rgba(201,164,76,.15), transparent 72%);
+  }
+  .scene-beam{z-index:1; opacity:0; filter:blur(14px); transition:opacity 1s ease .1s;}
+  .scene-beam-cone{
+    position:absolute; inset:0;
+    -webkit-clip-path:polygon(0 0,0 0,0 0,0 0); clip-path:polygon(0 0,0 0,0 0,0 0);
+    transition:clip-path .8s ease, -webkit-clip-path .8s ease;
+    background:radial-gradient(circle at var(--mx,30%) var(--my,20%),
+      rgba(255,212,140,.55) 0, rgba(255,204,124,.24) calc(var(--bl,900px) * .2),
+      rgba(255,196,112,.08) calc(var(--bl,900px) * .5), rgba(255,196,112,0) calc(var(--bl,900px) * .85));
+  }
+  .scene-dust{z-index:2; width:100%; height:100%; opacity:0; transition:opacity 1.2s ease .3s;}
+  #loginGate.lit .scene-ambient{opacity:.8;}
+  #loginGate.lit .scene-beam{opacity:.85;}
+  #loginGate.lit .scene-dust{opacity:1;}
+  #loginGate.bright .scene-ambient{opacity:1; transform:scale(1.25);}
+  #loginGate.bright .scene-beam{opacity:1;}
+
+  /* lampe */
+  .lamp-col{position:relative; z-index:3; display:flex; flex-direction:column; align-items:center; gap:var(--s2); align-self:flex-start; margin-left:2vw;}
+  .lamp-stage{--lamp-w:min(62vw,250px); --u:calc(var(--lamp-w) / 320); position:relative; width:var(--lamp-w); height:calc(var(--lamp-w) * 1.1875);}
+  .lamp-svg{display:block; width:100%; height:100%; overflow:visible;}
+  .lamp-glow-g{opacity:0; transition:opacity .3s ease-out;}
+  #loginGate.lit .lamp-glow-g{opacity:1; transition-duration:.6s;}
+
+  /* cordon : un vrai bouton, zone tactile de 44 px */
+  .cord{--pull:0; position:absolute; left:64%; top:46%; width:44px; margin-left:-22px; display:flex; flex-direction:column; align-items:center; z-index:2;}
+  .cord-line{display:block; flex:none; width:2px; height:calc(var(--u) * 76 + var(--pull) * 1px); background:linear-gradient(#9a8764,#5b4e3c); border-radius:var(--r-pill);}
+  .cord.spring .cord-line{transition:height .42s cubic-bezier(.3,1.7,.5,1);}
+  .cord-btn{position:relative; flex:none; width:44px; height:44px; margin-top:-22px; padding:0; border:0; border-radius:var(--r-pill); background:transparent; cursor:grab; touch-action:none; -webkit-tap-highlight-color:transparent;}
+  .cord-btn:active{cursor:grabbing;}
+  .cord-btn::before{content:""; position:absolute; left:50%; top:50%; width:14px; height:14px; margin:-7px 0 0 -7px; border-radius:var(--r-pill); background:radial-gradient(circle at 35% 30%, #f1d58f, #b98b2e 60%, #6b4d14);}
+  .cord-btn:disabled{cursor:default;}
+
+  .lamp-hint{font-size:13px; color:var(--text-3); text-align:center; animation:hintPulse 2.6s ease-in-out infinite; transition:opacity .4s ease, visibility 0s linear 0s;}
+  #loginGate.lit .lamp-hint{opacity:0; visibility:hidden; animation:none; transition:opacity .4s ease, visibility 0s linear .4s;}
+  @keyframes hintPulse{0%,100%{opacity:.55} 50%{opacity:1}}
+
+  /* carte de connexion : invisible et inerte tant que la lampe est éteinte */
+  .login-box{
+    position:relative; z-index:4; width:100%; max-width:380px; padding:var(--s6) var(--s6) var(--s3); border-radius:var(--r-md);
+    background:linear-gradient(var(--card-angle,150deg), rgba(255,214,150,.10), rgba(255,214,150,0) 55%), rgba(21,18,13,.92);
+    border:1px solid rgba(201,164,76,.22); box-shadow:var(--shadow-2);
+    opacity:0; visibility:hidden; filter:blur(10px); transform:translateY(var(--s3));
+    transition:opacity .9s ease .3s, filter .9s ease .3s, transform .9s ease .3s, visibility 0s linear .3s;
+  }
+  #loginGate.lit .login-box{opacity:1; visibility:visible; filter:none; transform:none;}
+  .login-box.shake{animation:cardShake .42s ease;}
+  @keyframes cardShake{0%,100%{transform:translateX(0)} 15%{transform:translateX(-8px)} 30%{transform:translateX(8px)} 45%{transform:translateX(-4px)} 60%{transform:translateX(4px)} 75%{transform:translateX(-4px)}}
+  #loginGate.flicker .lamp-glow-g, #loginGate.flicker .scene-beam, #loginGate.flicker .scene-ambient{animation:lampFlicker .55s linear;}
+  @keyframes lampFlicker{0%{opacity:1} 10%{opacity:.25} 20%{opacity:1} 34%{opacity:.45} 46%{opacity:.9} 58%{opacity:.3} 70%{opacity:1} 100%{opacity:1}}
+
+  .login-logo{display:flex; align-items:center; justify-content:center; margin-bottom:var(--s5);}
+  .login-logo svg{height:44px; width:auto;}
+  .login-box h1{font-size:20px; font-weight:800; text-align:center; margin-bottom:var(--s2);}
+  .login-box .sub{text-align:center; color:var(--text-2); font-size:13px; margin-bottom:var(--s6);}
+  .field-wrap{position:relative;}
+  .field-icon{position:absolute; left:var(--s4); top:50%; width:20px; height:20px; margin-top:-10px; color:var(--text-3); pointer-events:none;}
+  #loginGate .form-field input{min-height:48px; padding:var(--s3) var(--s4) var(--s3) var(--s9); font-size:16px;}
+  #loginGate .form-field input::placeholder{color:var(--text-3);}
+  #loginGate .form-field input[aria-invalid="true"]{border-color:var(--err);}
+  .field-pass input{padding-right:52px;}
+  .pass-toggle{position:absolute; right:var(--s1); top:50%; width:44px; height:44px; margin-top:-22px; display:flex; align-items:center; justify-content:center; border-radius:var(--r-sm); background:transparent; color:var(--text-3);}
+  .pass-toggle:hover{color:var(--text);}
+  .pass-toggle:focus-visible{outline-offset:-2px;}
+  .pass-toggle svg{width:20px; height:20px;}
+  .pass-toggle .eye-slash{display:none;}
+  .pass-toggle[aria-pressed="true"] .eye-slash{display:block;}
+  #loginGate .form-error{margin:0 0 var(--s3); line-height:1.4;}
+
+  #loginGate .btn-primary{position:relative; display:flex; align-items:center; justify-content:center; gap:var(--s3); min-height:48px; margin-top:var(--s1); transition:background .2s ease, transform .15s ease;}
+  #loginGate .btn-primary:active{transform:scale(.99);}
+  #loginGate .btn-primary:disabled{cursor:default;}
+  .btn-spinner{display:none; width:16px; height:16px; border-radius:var(--r-pill); border:2px solid rgba(26,21,8,.3); border-top-color:var(--on-accent); animation:spin .7s linear infinite;}
+  .btn-check{display:none; width:20px; height:20px;}
+  .btn-check path{stroke-dasharray:1; stroke-dashoffset:1; animation:checkDraw .35s ease forwards;}
+  .btn-primary.is-loading .btn-spinner{display:block;}
+  .btn-primary.is-success .btn-check{display:block;}
+  .btn-primary.is-success .btn-label{display:none;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes checkDraw{to{stroke-dashoffset:0}}
+  .login-box .back-link{display:flex; align-items:center; justify-content:center; min-height:44px; margin-top:var(--s2); font-size:14px; color:var(--text-2);}
+  .login-box .back-link:hover{color:var(--text);}
+
+  .dash-enter{animation:dashIn .5s ease;}
+  @keyframes dashIn{from{opacity:0} to{opacity:1}}
+
+  @media (min-width:900px){
+    #loginGate.show{flex-direction:row; justify-content:center; align-items:center; gap:clamp(40px,8vw,140px); padding:var(--s7);}
+    .lamp-col{align-self:center; margin-left:0;}
+    .lamp-stage{--lamp-w:min(30vw,340px);}
+  }
+
+  /* ===== tableau de bord ===== */
+  #dashboardApp{display:none;}
+  .app-shell{display:flex; min-height:100vh;}
+  .sidebar{width:232px; flex-shrink:0; background:var(--bg-elevated); border-right:1px solid var(--line); padding:var(--s6) var(--s4); display:flex; flex-direction:column; position:sticky; top:0; height:100vh;}
+  .sidebar-logo{display:flex; align-items:center; gap:var(--s2); margin-bottom:var(--s7); padding:0 var(--s1);}
+  .sidebar-logo svg{height:32px; width:auto;}
+  .sidebar-logo span{font-family:var(--font-title); font-weight:700; font-size:15px;}
+  .side-nav{display:flex; flex-direction:column; gap:var(--s1); flex:1;}
+  .side-nav a{padding:var(--s3) var(--s4); border-radius:var(--r-sm); font-size:14px; font-weight:600; color:var(--text-3); transition:background .2s ease, color .2s ease;}
+  .side-nav a:hover{color:var(--text); background:var(--bg-card);}
+  .side-nav a.active{color:var(--accent); background:rgba(201,164,76,.1);}
+  .sidebar-foot{border-top:1px solid var(--line); padding-top:var(--s4); margin-top:var(--s4); display:flex; flex-direction:column; gap:var(--s2);}
+  .sidebar-foot a, .sidebar-foot button{font-size:13px; color:var(--text-3); padding:var(--s2) var(--s4); min-height:40px; border-radius:var(--r-sm); text-align:left; background:transparent;}
+  .sidebar-foot a:hover, .sidebar-foot button:hover{color:var(--text); background:var(--bg-card);}
+  .sidebar-foot a{display:flex; align-items:center;}
+
+  .menu-toggle{display:none; position:fixed; top:var(--s4); left:var(--s4); z-index:60; background:var(--bg-elevated); border:1px solid var(--line); border-radius:var(--r-sm); width:44px; height:44px; align-items:center; justify-content:center; color:var(--text); font-size:18px;}
+  @media (max-width:900px){
+    .sidebar{position:fixed; left:0; top:0; z-index:55; transform:translateX(-100%); transition:transform .25s ease; box-shadow:var(--shadow-2);}
+    .sidebar.open{transform:translateX(0);}
+    .menu-toggle{display:flex;}
+    .app-shell{display:block;}
+  }
+
+  .admin-main{flex:1; padding:var(--s7); max-width:1180px;}
+  @media (max-width:900px){ .admin-main{padding:80px var(--s5) var(--s8);} }
+  .admin-section{margin-bottom:var(--s9); scroll-margin-top:var(--s5);}
+  .admin-section h2{font-size:20px; font-weight:800; margin-bottom:var(--s5);}
+
+  .stat-row{display:grid; grid-template-columns:repeat(4,1fr); gap:var(--s4);}
+  @media (max-width:700px){ .stat-row{grid-template-columns:repeat(2,1fr);} }
+  .stat-card{border:1px solid var(--line); border-radius:var(--r-md); padding:var(--s5); background:var(--bg-elevated);}
+  .stat-card .n{font-family:var(--font-text); font-size:28px; font-weight:700; line-height:1.2; color:var(--accent); font-variant-numeric:tabular-nums;}
+  .stat-card .l{font-size:13px; color:var(--text-3); margin-top:var(--s1);}
+
+  .panel{background:var(--bg-elevated); border:1px solid var(--line); border-radius:var(--r-md); padding:var(--s6); margin-bottom:var(--s6);}
+  .panel h3{font-size:16px; margin-bottom:var(--s4);}
+  .add-form-grid{display:grid; grid-template-columns:1fr 1fr; gap:var(--s4); margin-bottom:var(--s4);}
+  .add-form-grid .form-field{margin-bottom:0;}
+  @media (max-width:600px){ .add-form-grid{grid-template-columns:1fr;} }
+  .photo-upload{border:1px dashed var(--line); border-radius:var(--r-sm); padding:var(--s4); text-align:center; margin-bottom:var(--s4);}
+  .photo-upload input[type=file]{font-size:13px; color:var(--text-3);}
+  .photo-preview{width:64px; height:64px; border-radius:var(--r-sm); object-fit:cover; margin:var(--s3) auto 0; display:none;}
+  .form-actions{display:flex; gap:var(--s3);}
+  .form-actions .btn-primary{width:auto; flex:1;}
+  .empty-msg{font-size:13px; color:var(--text-3);}
+
+  /* tableau du catalogue */
+  .table-wrap{overflow-x:auto;}
+  table.cat-table{width:100%; border-collapse:collapse; font-size:13px;}
+  table.cat-table th{text-align:left; font-size:12px; font-weight:600; color:var(--text-3); padding:var(--s3); border-bottom:1px solid var(--line); white-space:nowrap;}
+  table.cat-table td{padding:var(--s3); border-bottom:1px solid var(--line); vertical-align:middle;}
+  table.cat-table tr:last-child td{border-bottom:none;}
+  .cat-table .thumb-cell img, .cat-table .thumb-cell .ph{width:40px; height:40px; border-radius:var(--r-sm); object-fit:cover; background:var(--bg); display:block;}
+  .cat-table .name-cell .n{font-weight:700; font-size:13px;}
+  .cat-table .name-cell .b{color:var(--text-3); font-size:12px; margin-top:var(--s1);}
+  .icon-btn{background:transparent; border:1px solid var(--line); color:var(--text-3); width:40px; height:40px; border-radius:var(--r-sm); font-size:14px;}
+  .icon-btn:hover{color:var(--err); border-color:var(--err);}
+  .icon-btn.edit:hover{color:var(--accent); border-color:var(--accent);}
+  .actions-cell{display:flex; gap:var(--s2);}
+
+  /* réservations */
+  .resv-list{display:flex; flex-direction:column; gap:var(--s3);}
+  .resv-row{background:var(--bg-card); border:1px solid var(--line); border-radius:var(--r-md); padding:var(--s4);}
+  .resv-top{display:flex; justify-content:space-between; margin-bottom:var(--s1); flex-wrap:wrap; gap:var(--s2);}
+  .resv-top .nm{font-weight:700; font-size:14px;}
+  .resv-meta{color:var(--text-3); font-size:13px;}
+  .resv-actions{margin-top:var(--s3);}
+  .small-btn{background:transparent; border:1px solid var(--line); color:var(--text-2); min-height:36px; padding:var(--s2) var(--s3); border-radius:var(--r-sm); font-size:12px;}
+  .small-btn:hover{border-color:var(--accent); color:var(--accent);}
+
+  .toast{position:fixed; bottom:var(--s6); left:50%; transform:translateX(-50%) translateY(var(--s5)); background:var(--bg-elevated); border:1px solid var(--accent); color:var(--text); padding:var(--s4) var(--s6); border-radius:var(--r-md); font-size:14px; z-index:200; opacity:0; transition:opacity .25s ease, transform .25s ease; box-shadow:var(--shadow-1); max-width:90vw;}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  /* ===== mouvement réduit ===== */
+  @media (prefers-reduced-motion:reduce){
+    *, *::before, *::after{animation-duration:.01ms !important; animation-delay:0s !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; transition-delay:0s !important;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== ÉCRAN DE CONNEXION ===== -->
+<div id="authChecking">Vérification de la session…</div>
+<div id="loginGate">
+  <div class="scene-ambient" aria-hidden="true"></div>
+  <div class="scene-beam" aria-hidden="true"><div class="scene-beam-cone" id="sceneBeamCone"></div></div>
+  <canvas id="dustCanvas" class="scene-dust" aria-hidden="true"></canvas>
+
+  <div class="lamp-col">
+    <div class="lamp-stage" id="lampStage">
+      <svg class="lamp-svg" viewBox="0 0 320 380" aria-hidden="true" focusable="false">
+        <defs>
+          <radialGradient id="lampInner" cx="50%" cy="50%" r="60%">
+            <stop offset="0" stop-color="#fff4d6"/><stop offset=".5" stop-color="#ffc66e"/><stop offset="1" stop-color="#c47a22"/>
+          </radialGradient>
+          <radialGradient id="lampHalo" cx="50%" cy="50%" r="50%">
+            <stop offset="0" stop-color="#ffd48a" stop-opacity=".85"/><stop offset=".55" stop-color="#ffbf66" stop-opacity=".26"/><stop offset="1" stop-color="#ffbf66" stop-opacity="0"/>
+          </radialGradient>
+          <linearGradient id="lampShadeBody" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#4a3f31"/><stop offset=".5" stop-color="#352d23"/><stop offset="1" stop-color="#1c1711"/>
+          </linearGradient>
+        </defs>
+        <!-- base -->
+        <ellipse cx="80" cy="354" rx="62" ry="10" fill="#120f0a"/>
+        <path d="M26 352 Q26 330 80 327 Q134 330 134 352 Z" fill="#2f281f" stroke="#6a5b45" stroke-width="1.5"/>
+        <path d="M42 341 Q80 331 118 341" fill="none" stroke="#7a6a52" stroke-width="1.5" stroke-linecap="round" opacity=".6"/>
+        <!-- bras articulé -->
+        <g fill="none" stroke-linecap="round">
+          <line x1="80" y1="330" x2="128" y2="196" stroke="#5a4d3b" stroke-width="7"/>
+          <line x1="90" y1="327" x2="138" y2="193" stroke="#43392d" stroke-width="3"/>
+          <line x1="128" y1="196" x2="196" y2="84" stroke="#5a4d3b" stroke-width="7"/>
+          <line x1="138" y1="200" x2="206" y2="88" stroke="#43392d" stroke-width="3"/>
+        </g>
+        <circle cx="80" cy="330" r="7" fill="#352d23" stroke="#7a6a52" stroke-width="1.5"/>
+        <circle cx="128" cy="196" r="9" fill="#352d23" stroke="#7a6a52" stroke-width="1.5"/>
+        <!-- tête : abat-jour orienté par le script -->
+        <g id="lampHead" transform="translate(196 84) rotate(-35)">
+          <path d="M-15 -4 Q0 -13 15 -4 L52 78 L-52 78 Z" fill="url(#lampShadeBody)" stroke="#7a6a52" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M-6 4 L-36 70" fill="none" stroke="#9a8764" stroke-width="1.5" stroke-linecap="round" opacity=".35"/>
+          <ellipse cx="0" cy="78" rx="52" ry="10" fill="#0f0c08" stroke="#7a6a52" stroke-width="1.5"/>
+          <g class="lamp-glow-g">
+            <ellipse cx="0" cy="78" rx="47" ry="7.5" fill="url(#lampInner)"/>
+            <ellipse cx="0" cy="82" rx="110" ry="56" fill="url(#lampHalo)"/>
+          </g>
+        </g>
+        <circle cx="196" cy="84" r="9" fill="#352d23" stroke="#7a6a52" stroke-width="1.5"/>
+      </svg>
+      <div class="cord" id="cord">
+        <span class="cord-line"></span>
+        <button type="button" class="cord-btn" id="cordBtn" aria-label="Allumer la lampe"></button>
+      </div>
+    </div>
+    <p class="lamp-hint" id="lampHint">Tirez le cordon pour allumer</p>
+  </div>
+  <p class="sr-only" id="lampStatus" role="status" aria-live="polite"></p>
+
+  <div class="login-box" id="loginCard" inert>
+    <div class="login-logo">
+      <svg viewBox="440 40 760 680" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="loginLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e0bc6a"/><stop offset="100%" stop-color="#a3813a"/></linearGradient></defs><path d="M1028.5,69.3 L1027.4,69.0 L1026.0,69.0 L1024.4,69.3 L1022.6,69.9 L1020.5,70.5 L1018.0,71.2 L1015.3,71.9 L1012.4,72.5 L1009.3,73.1 L1006.2,73.8 L1003.2,74.5 L1000.2,75.3 L997.4,76.2 L994.6,77.2 L991.9,78.2 L989.3,79.3 L986.7,80.4 L984.1,81.6 L981.6,82.8 L979.1,84.1 L976.6,85.3 L974.1,86.6 L971.6,88.0 L969.1,89.3 L966.6,90.6 L964.1,92.0 L961.6,93.4 L959.0,94.8 L956.5,96.3 L954.1,97.8 L951.6,99.3 L949.1,100.8 L946.7,102.4 L944.2,104.0 L941.8,105.6 L939.5,107.2 L937.1,108.9 L934.8,110.7 L932.5,112.5 L930.2,114.3 L928.0,116.1 L925.8,118.0 L923.6,120.0 L921.5,121.9 L919.5,124.0 L917.5,126.0 L915.5,128.2 L913.6,130.3 L911.7,132.6 L909.9,134.8 L908.2,137.1 L906.4,139.4 L904.8,141.8 L903.1,144.2 L901.5,146.6 L900.0,149.1 L898.5,151.6 L897.1,154.1 L895.6,156.6 L894.3,159.2 L893.0,161.7 L891.7,164.3 L890.4,166.9 L889.2,169.6 L888.1,172.2 L886.9,174.8 L885.9,177.5 L884.8,180.1 L883.8,182.8 L882.8,185.4 L881.9,188.1 L881.0,190.8 L880.2,193.5 L879.4,196.2 L878.7,199.0 L878.1,201.8 L877.5,204.7 L877.0,207.7 L876.6,210.7 L876.3,213.8 L876.1,216.9 L876.0,220.0 L876.1,223.0 L876.4,226.0 L876.9,228.7 L877.7,231.3 L878.8,233.6 L880.2,235.5 L881.9,237.2 L883.9,238.4 L886.3,239.3 L888.9,239.8 L891.8,240.1 L894.8,240.1 L898.0,239.9 L901.2,239.6 L904.4,239.1 L907.6,238.6 L910.8,237.9 L913.8,237.3 L916.8,236.6 L919.6,235.9 L922.4,235.1 L925.1,234.3 L927.8,233.5 L930.4,232.6 L933.0,231.7 L935.5,230.7 L938.1,229.6 L940.6,228.5 L943.1,227.3 L945.7,226.1 L948.2,224.8 L950.7,223.5 L953.2,222.1 L955.7,220.6 L958.1,219.1 L960.6,217.5 L963.0,215.9 L965.4,214.2 L967.8,212.5 L970.1,210.7 L972.5,208.9 L974.8,207.0 L977.0,205.1 L979.3,203.1 L981.5,201.1 L983.7,199.1 L985.8,197.0 L987.9,194.9 L989.9,192.7 L991.9,190.6 L993.9,188.3 L995.8,186.1 L997.6,183.8 L999.4,181.4 L1001.2,179.1 L1002.9,176.7 L1004.6,174.3 L1006.2,171.8 L1007.7,169.3 L1009.2,166.9 L1010.7,164.3 L1012.0,161.8 L1013.4,159.2 L1014.7,156.7 L1015.9,154.1 L1017.1,151.4 L1018.2,148.8 L1019.3,146.2 L1020.3,143.5 L1021.2,140.8 L1022.1,138.2 L1023.0,135.5 L1023.8,132.8 L1024.5,130.1 L1025.2,127.4 L1025.8,124.7 L1026.3,121.9 L1026.9,119.2 L1027.4,116.4 L1027.8,113.5 L1028.2,110.6 L1028.6,107.7 L1029.0,104.7 L1029.4,101.6 L1029.8,98.5 L1030.2,95.2 L1030.5,92.0 L1030.8,88.8 L1031.0,85.7 L1031.1,82.8 L1031.2,80.0 L1031.1,77.4 L1030.9,75.1 L1030.6,73.0 L1030.1,71.4 L1029.4,70.1 L1028.5,69.3 Z" fill="none" stroke="url(#loginLogoGrad)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/><path d="M680.0,263.0 L689.6,263.1 L699.0,263.2 L708.3,263.3 L717.6,263.4 L726.7,263.5 L735.9,263.6 L745.2,263.6 L754.6,263.5 L764.1,263.2 L773.9,262.7 L783.8,262.2 L793.8,261.7 L803.3,262.0 L811.9,263.5 L819.2,266.7 L824.7,272.1 L828.2,280.0 L830.2,289.3 L831.2,299.0 L831.5,308.5 L831.6,317.8 L831.5,327.1 L831.3,336.5 L831.2,345.9 L831.0,355.4 L830.9,364.8 L830.7,374.3 L830.6,383.8 L830.5,393.3 L830.5,402.9 L830.6,412.4 L830.7,421.9 L831.0,431.4 L831.2,440.9 L831.5,450.4 L831.7,459.9 L831.9,469.4 L832.0,478.9 L832.1,488.3 L831.9,497.7 L831.7,507.1 L831.2,516.4 L830.5,525.7 L829.6,534.9 L828.4,544.0 L826.9,553.0 L825.1,562.0 L823.0,570.7 L820.5,579.3 L817.6,587.8 L814.3,596.0 L810.6,604.0 L806.4,611.8 L801.7,619.3 L796.6,626.6 L791.1,633.6 L785.1,640.3 L778.8,646.7 L772.1,652.7 L765.1,658.5 L757.8,663.8 L750.3,668.8 L742.4,673.5 L734.4,677.7 L726.1,681.6 L717.7,685.0 L709.1,688.0 L700.3,690.6 L691.5,692.8 L682.5,694.5 L673.5,695.8 L664.5,696.7 L655.4,697.1 L646.3,697.1 L637.3,696.7 L628.3,695.9 L619.3,694.7 L610.4,693.0 L601.7,690.9 L593.0,688.4 L584.5,685.5 L576.2,682.1 L568.1,678.3 L560.2,674.1 L552.6,669.4 L545.2,664.4 L538.1,658.8 L531.3,652.9 L524.9,646.5 L518.8,639.7 L513.1,632.5 L507.9,625.0 L503.3,617.0 L499.2,608.8 L495.8,600.3 L493.0,591.5 L491.4,582.8 L491.1,574.4 L492.7,566.7 L496.6,560.1 L503.3,555.0 L512.5,551.6 L522.8,550.3 L532.3,551.3 L540.0,554.4 L546.2,559.4 L551.6,565.8 L556.7,572.9 L561.6,580.5 L566.6,588.3 L571.9,595.8 L577.6,602.8 L584.1,608.8 L591.3,613.6 L599.3,617.2 L607.9,619.9 L616.9,621.7 L626.1,623.0 L635.5,623.9 L644.7,624.5 L653.9,624.6 L663.0,624.3 L672.0,623.4 L680.8,621.7 L689.5,619.2 L697.9,615.9 L706.0,611.7 L713.6,606.9 L720.7,601.3 L727.2,595.0 L732.8,588.1 L737.7,580.6 L741.9,572.6 L745.4,564.3 L748.2,555.6 L750.4,546.7 L752.0,537.7 L753.1,528.7 L753.8,519.6 L754.2,510.4 L754.3,501.1 L754.2,491.7 L753.9,482.3 L753.7,472.8 L753.4,463.3 L753.3,453.6 L753.4,443.9 L753.7,434.1 L754.1,424.4 L754.5,414.6 L754.9,404.9 L755.1,395.3 L755.1,385.8 L754.7,376.5 L753.8,367.5 L752.4,358.7 L750.4,350.3 L747.3,342.5 L741.9,337.0 L734.0,334.3 L724.6,333.7 L714.5,334.1 L704.2,335.0 L694.2,335.8 L684.5,336.2 L675.3,335.8 L666.9,334.3 L659.3,331.3 L652.9,326.8 L648.0,320.4 L644.9,312.3 L643.7,302.6 L644.2,292.4 L645.9,282.7 L649.0,274.4 L654.0,268.1 L661.3,264.6 L670.3,263.2 L680.0,263.0 Z" fill="none" stroke="url(#loginLogoGrad)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/><path d="M869.5,335.8 L875.5,328.8 L881.7,322.3 L888.2,316.4 L894.8,310.9 L901.7,305.9 L908.8,301.2 L916.1,297.0 L923.6,293.2 L931.3,289.6 L939.1,286.4 L947.2,283.4 L955.4,280.7 L963.8,278.2 L972.3,276.0 L981.0,274.0 L989.7,272.2 L998.5,270.8 L1007.3,269.7 L1016.2,268.9 L1025.0,268.4 L1033.9,268.3 L1042.6,268.6 L1051.3,269.3 L1059.9,270.3 L1068.4,271.8 L1076.8,273.5 L1085.2,275.6 L1093.5,278.0 L1101.7,280.7 L1109.9,283.6 L1118.1,286.8 L1126.2,290.2 L1134.2,293.8 L1142.2,297.5 L1150.0,301.7 L1157.5,306.4 L1164.3,311.8 L1169.9,318.2 L1173.8,325.3 L1175.2,333.2 L1174.2,341.4 L1171.2,349.5 L1166.6,356.7 L1160.6,362.6 L1153.8,366.5 L1146.4,368.0 L1138.6,367.5 L1130.4,365.5 L1122.2,362.5 L1113.9,358.8 L1105.7,355.1 L1097.6,351.6 L1089.6,348.4 L1081.6,345.5 L1073.5,343.0 L1065.4,340.8 L1057.0,339.0 L1048.4,337.7 L1039.7,336.8 L1030.9,336.3 L1022.1,336.3 L1013.2,336.7 L1004.3,337.5 L995.5,338.9 L986.9,340.6 L978.3,342.9 L969.9,345.6 L961.8,348.8 L953.9,352.5 L946.2,356.6 L938.8,361.1 L931.7,366.1 L925.0,371.4 L918.6,377.2 L912.5,383.3 L906.9,389.8 L901.7,396.7 L896.9,403.9 L892.6,411.4 L888.8,419.3 L885.4,427.4 L882.6,435.7 L880.2,444.2 L878.4,452.9 L877.1,461.7 L876.3,470.5 L876.0,479.3 L876.2,488.2 L877.0,496.9 L878.4,505.6 L880.2,514.1 L882.6,522.5 L885.5,530.7 L888.8,538.7 L892.6,546.4 L896.8,554.0 L901.5,561.3 L906.6,568.3 L912.0,575.0 L917.9,581.4 L924.1,587.4 L930.6,593.1 L937.4,598.4 L944.6,603.3 L952.0,607.8 L959.7,611.9 L967.7,615.4 L975.8,618.5 L984.2,621.1 L992.8,623.1 L1001.6,624.6 L1010.5,625.5 L1019.5,625.8 L1028.7,625.6 L1037.8,624.9 L1046.7,623.7 L1055.5,622.2 L1063.9,620.4 L1072.1,618.2 L1080.1,615.8 L1087.9,612.9 L1095.7,609.6 L1103.5,605.9 L1111.4,601.8 L1119.4,597.9 L1127.4,594.6 L1135.5,592.4 L1143.5,592.0 L1151.6,593.7 L1159.4,597.7 L1166.4,603.4 L1172.4,610.3 L1176.7,618.0 L1178.9,625.8 L1178.6,633.4 L1175.9,640.4 L1171.2,646.9 L1165.0,653.0 L1157.7,658.5 L1149.9,663.5 L1142.1,668.1 L1134.4,672.2 L1126.8,676.0 L1119.2,679.4 L1111.5,682.4 L1103.7,685.2 L1095.6,687.8 L1087.3,690.1 L1078.8,692.1 L1070.1,693.9 L1061.3,695.5 L1052.4,696.7 L1043.5,697.7 L1034.5,698.3 L1025.5,698.6 L1016.6,698.6 L1007.8,698.2 L999.1,697.4 L990.5,696.4 L982.0,694.9 L973.6,693.2 L965.2,691.1 L956.9,688.7 L948.7,686.1 L940.6,683.1 L932.5,679.9 L924.4,676.4 L916.4,672.6 L908.6,668.5 L900.9,664.1 L893.6,659.3 L886.8,654.0 L880.5,648.2 L875.0,641.9 L870.3,635.0 L866.6,627.4 L863.9,619.0 L862.4,609.9 L862.3,600.0" fill="none" stroke="url(#loginLogoGrad)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <h1>Espace J.C Communication</h1>
+    <div class="sub">Connexion réservée à l'équipe.</div>
+    <form id="gateForm" novalidate>
+      <div class="form-field">
+        <label for="gateEmail">Email</label>
+        <div class="field-wrap">
+          <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.5 7.5l8.5 6 8.5-6"/></svg>
+          <input id="gateEmail" name="email" type="email" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="votre@email.com" aria-describedby="gateError">
+        </div>
+      </div>
+      <div class="form-field">
+        <label for="gatePass">Mot de passe</label>
+        <div class="field-wrap field-pass">
+          <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>
+          <input id="gatePass" name="password" type="password" autocomplete="current-password" placeholder="Mot de passe" aria-describedby="gateError">
+          <button type="button" class="pass-toggle" id="passToggle" aria-label="Afficher le mot de passe" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/><path class="eye-slash" d="M4 4l16 16"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="form-error" id="gateError" role="alert">Email ou mot de passe incorrect.</div>
+      <button class="btn-primary" id="gateSubmit" type="submit">
+        <span class="btn-spinner" aria-hidden="true"></span>
+        <svg class="btn-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" pathLength="1"/></svg>
+        <span class="btn-label">Se connecter</span>
+      </button>
+    </form>
+    <a class="back-link" href="./">&larr; Retour au site</a>
+  </div>
+</div>
+
+<!-- ===== TABLEAU DE BORD ===== -->
+<div id="dashboardApp">
+  <button class="menu-toggle" id="menuToggle">&#9776;</button>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <svg viewBox="440 40 760 680" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="sideLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e0bc6a"/><stop offset="100%" stop-color="#a3813a"/></linearGradient></defs><path d="M1028.5,69.3 L1027.4,69.0 L1026.0,69.0 L1024.4,69.3 L1022.6,69.9 L1020.5,70.5 L1018.0,71.2 L1015.3,71.9 L1012.4,72.5 L1009.3,73.1 L1006.2,73.8 L1003.2,74.5 L1000.2,75.3 L997.4,76.2 L994.6,77.2 L991.9,78.2 L989.3,79.3 L986.7,80.4 L984.1,81.6 L981.6,82.8 L979.1,84.1 L976.6,85.3 L974.1,86.6 L971.6,88.0 L969.1,89.3 L966.6,90.6 L964.1,92.0 L961.6,93.4 L959.0,94.8 L956.5,96.3 L954.1,97.8 L951.6,99.3 L949.1,100.8 L946.7,102.4 L944.2,104.0 L941.8,105.6 L939.5,107.2 L937.1,108.9 L934.8,110.7 L932.5,112.5 L930.2,114.3 L928.0,116.1 L925.8,118.0 L923.6,120.0 L921.5,121.9 L919.5,124.0 L917.5,126.0 L915.5,128.2 L913.6,130.3 L911.7,132.6 L909.9,134.8 L908.2,137.1 L906.4,139.4 L904.8,141.8 L903.1,144.2 L901.5,146.6 L900.0,149.1 L898.5,151.6 L897.1,154.1 L895.6,156.6 L894.3,159.2 L893.0,161.7 L891.7,164.3 L890.4,166.9 L889.2,169.6 L888.1,172.2 L886.9,174.8 L885.9,177.5 L884.8,180.1 L883.8,182.8 L882.8,185.4 L881.9,188.1 L881.0,190.8 L880.2,193.5 L879.4,196.2 L878.7,199.0 L878.1,201.8 L877.5,204.7 L877.0,207.7 L876.6,210.7 L876.3,213.8 L876.1,216.9 L876.0,220.0 L876.1,223.0 L876.4,226.0 L876.9,228.7 L877.7,231.3 L878.8,233.6 L880.2,235.5 L881.9,237.2 L883.9,238.4 L886.3,239.3 L888.9,239.8 L891.8,240.1 L894.8,240.1 L898.0,239.9 L901.2,239.6 L904.4,239.1 L907.6,238.6 L910.8,237.9 L913.8,237.3 L916.8,236.6 L919.6,235.9 L922.4,235.1 L925.1,234.3 L927.8,233.5 L930.4,232.6 L933.0,231.7 L935.5,230.7 L938.1,229.6 L940.6,228.5 L943.1,227.3 L945.7,226.1 L948.2,224.8 L950.7,223.5 L953.2,222.1 L955.7,220.6 L958.1,219.1 L960.6,217.5 L963.0,215.9 L965.4,214.2 L967.8,212.5 L970.1,210.7 L972.5,208.9 L974.8,207.0 L977.0,205.1 L979.3,203.1 L981.5,201.1 L983.7,199.1 L985.8,197.0 L987.9,194.9 L989.9,192.7 L991.9,190.6 L993.9,188.3 L995.8,186.1 L997.6,183.8 L999.4,181.4 L1001.2,179.1 L1002.9,176.7 L1004.6,174.3 L1006.2,171.8 L1007.7,169.3 L1009.2,166.9 L1010.7,164.3 L1012.0,161.8 L1013.4,159.2 L1014.7,156.7 L1015.9,154.1 L1017.1,151.4 L1018.2,148.8 L1019.3,146.2 L1020.3,143.5 L1021.2,140.8 L1022.1,138.2 L1023.0,135.5 L1023.8,132.8 L1024.5,130.1 L1025.2,127.4 L1025.8,124.7 L1026.3,121.9 L1026.9,119.2 L1027.4,116.4 L1027.8,113.5 L1028.2,110.6 L1028.6,107.7 L1029.0,104.7 L1029.4,101.6 L1029.8,98.5 L1030.2,95.2 L1030.5,92.0 L1030.8,88.8 L1031.0,85.7 L1031.1,82.8 L1031.2,80.0 L1031.1,77.4 L1030.9,75.1 L1030.6,73.0 L1030.1,71.4 L1029.4,70.1 L1028.5,69.3 Z" fill="none" stroke="url(#sideLogoGrad)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/><path d="M680.0,263.0 L689.6,263.1 L699.0,263.2 L708.3,263.3 L717.6,263.4 L726.7,263.5 L735.9,263.6 L745.2,263.6 L754.6,263.5 L764.1,263.2 L773.9,262.7 L783.8,262.2 L793.8,261.7 L803.3,262.0 L811.9,263.5 L819.2,266.7 L824.7,272.1 L828.2,280.0 L830.2,289.3 L831.2,299.0 L831.5,308.5 L831.6,317.8 L831.5,327.1 L831.3,336.5 L831.2,345.9 L831.0,355.4 L830.9,364.8 L830.7,374.3 L830.6,383.8 L830.5,393.3 L830.5,402.9 L830.6,412.4 L830.7,421.9 L831.0,431.4 L831.2,440.9 L831.5,450.4 L831.7,459.9 L831.9,469.4 L832.0,478.9 L832.1,488.3 L831.9,497.7 L831.7,507.1 L831.2,516.4 L830.5,525.7 L829.6,534.9 L828.4,544.0 L826.9,553.0 L825.1,562.0 L823.0,570.7 L820.5,579.3 L817.6,587.8 L814.3,596.0 L810.6,604.0 L806.4,611.8 L801.7,619.3 L796.6,626.6 L791.1,633.6 L785.1,640.3 L778.8,646.7 L772.1,652.7 L765.1,658.5 L757.8,663.8 L750.3,668.8 L742.4,673.5 L734.4,677.7 L726.1,681.6 L717.7,685.0 L709.1,688.0 L700.3,690.6 L691.5,692.8 L682.5,694.5 L673.5,695.8 L664.5,696.7 L655.4,697.1 L646.3,697.1 L637.3,696.7 L628.3,695.9 L619.3,694.7 L610.4,693.0 L601.7,690.9 L593.0,688.4 L584.5,685.5 L576.2,682.1 L568.1,678.3 L560.2,674.1 L552.6,669.4 L545.2,664.4 L538.1,658.8 L531.3,652.9 L524.9,646.5 L518.8,639.7 L513.1,632.5 L507.9,625.0 L503.3,617.0 L499.2,608.8 L495.8,600.3 L493.0,591.5 L491.4,582.8 L491.1,574.4 L492.7,566.7 L496.6,560.1 L503.3,555.0 L512.5,551.6 L522.8,550.3 L532.3,551.3 L540.0,554.4 L546.2,559.4 L551.6,565.8 L556.7,572.9 L561.6,580.5 L566.6,588.3 L571.9,595.8 L577.6,602.8 L584.1,608.8 L591.3,613.6 L599.3,617.2 L607.9,619.9 L616.9,621.7 L626.1,623.0 L635.5,623.9 L644.7,624.5 L653.9,624.6 L663.0,624.3 L672.0,623.4 L680.8,621.7 L689.5,619.2 L697.9,615.9 L706.0,611.7 L713.6,606.9 L720.7,601.3 L727.2,595.0 L732.8,588.1 L737.7,580.6 L741.9,572.6 L745.4,564.3 L748.2,555.6 L750.4,546.7 L752.0,537.7 L753.1,528.7 L753.8,519.6 L754.2,510.4 L754.3,501.1 L754.2,491.7 L753.9,482.3 L753.7,472.8 L753.4,463.3 L753.3,453.6 L753.4,443.9 L753.7,434.1 L754.1,424.4 L754.5,414.6 L754.9,404.9 L755.1,395.3 L755.1,385.8 L754.7,376.5 L753.8,367.5 L752.4,358.7 L750.4,350.3 L747.3,342.5 L741.9,337.0 L734.0,334.3 L724.6,333.7 L714.5,334.1 L704.2,335.0 L694.2,335.8 L684.5,336.2 L675.3,335.8 L666.9,334.3 L659.3,331.3 L652.9,326.8 L648.0,320.4 L644.9,312.3 L643.7,302.6 L644.2,292.4 L645.9,282.7 L649.0,274.4 L654.0,268.1 L661.3,264.6 L670.3,263.2 L680.0,263.0 Z" fill="none" stroke="url(#sideLogoGrad)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/><path d="M869.5,335.8 L875.5,328.8 L881.7,322.3 L888.2,316.4 L894.8,310.9 L901.7,305.9 L908.8,301.2 L916.1,297.0 L923.6,293.2 L931.3,289.6 L939.1,286.4 L947.2,283.4 L955.4,280.7 L963.8,278.2 L972.3,276.0 L981.0,274.0 L989.7,272.2 L998.5,270.8 L1007.3,269.7 L1016.2,268.9 L1025.0,268.4 L1033.9,268.3 L1042.6,268.6 L1051.3,269.3 L1059.9,270.3 L1068.4,271.8 L1076.8,273.5 L1085.2,275.6 L1093.5,278.0 L1101.7,280.7 L1109.9,283.6 L1118.1,286.8 L1126.2,290.2 L1134.2,293.8 L1142.2,297.5 L1150.0,301.7 L1157.5,306.4 L1164.3,311.8 L1169.9,318.2 L1173.8,325.3 L1175.2,333.2 L1174.2,341.4 L1171.2,349.5 L1166.6,356.7 L1160.6,362.6 L1153.8,366.5 L1146.4,368.0 L1138.6,367.5 L1130.4,365.5 L1122.2,362.5 L1113.9,358.8 L1105.7,355.1 L1097.6,351.6 L1089.6,348.4 L1081.6,345.5 L1073.5,343.0 L1065.4,340.8 L1057.0,339.0 L1048.4,337.7 L1039.7,336.8 L1030.9,336.3 L1022.1,336.3 L1013.2,336.7 L1004.3,337.5 L995.5,338.9 L986.9,340.6 L978.3,342.9 L969.9,345.6 L961.8,348.8 L953.9,352.5 L946.2,356.6 L938.8,361.1 L931.7,366.1 L925.0,371.4 L918.6,377.2 L912.5,383.3 L906.9,389.8 L901.7,396.7 L896.9,403.9 L892.6,411.4 L888.8,419.3 L885.4,427.4 L882.6,435.7 L880.2,444.2 L878.4,452.9 L877.1,461.7 L876.3,470.5 L876.0,479.3 L876.2,488.2 L877.0,496.9 L878.4,505.6 L880.2,514.1 L882.6,522.5 L885.5,530.7 L888.8,538.7 L892.6,546.4 L896.8,554.0 L901.5,561.3 L906.6,568.3 L912.0,575.0 L917.9,581.4 L924.1,587.4 L930.6,593.1 L937.4,598.4 L944.6,603.3 L952.0,607.8 L959.7,611.9 L967.7,615.4 L975.8,618.5 L984.2,621.1 L992.8,623.1 L1001.6,624.6 L1010.5,625.5 L1019.5,625.8 L1028.7,625.6 L1037.8,624.9 L1046.7,623.7 L1055.5,622.2 L1063.9,620.4 L1072.1,618.2 L1080.1,615.8 L1087.9,612.9 L1095.7,609.6 L1103.5,605.9 L1111.4,601.8 L1119.4,597.9 L1127.4,594.6 L1135.5,592.4 L1143.5,592.0 L1151.6,593.7 L1159.4,597.7 L1166.4,603.4 L1172.4,610.3 L1176.7,618.0 L1178.9,625.8 L1178.6,633.4 L1175.9,640.4 L1171.2,646.9 L1165.0,653.0 L1157.7,658.5 L1149.9,663.5 L1142.1,668.1 L1134.4,672.2 L1126.8,676.0 L1119.2,679.4 L1111.5,682.4 L1103.7,685.2 L1095.6,687.8 L1087.3,690.1 L1078.8,692.1 L1070.1,693.9 L1061.3,695.5 L1052.4,696.7 L1043.5,697.7 L1034.5,698.3 L1025.5,698.6 L1016.6,698.6 L1007.8,698.2 L999.1,697.4 L990.5,696.4 L982.0,694.9 L973.6,693.2 L965.2,691.1 L956.9,688.7 L948.7,686.1 L940.6,683.1 L932.5,679.9 L924.4,676.4 L916.4,672.6 L908.6,668.5 L900.9,664.1 L893.6,659.3 L886.8,654.0 L880.5,648.2 L875.0,641.9 L870.3,635.0 L866.6,627.4 L863.9,619.0 L862.4,609.9 L862.3,600.0" fill="none" stroke="url(#sideLogoGrad)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>J.C Admin</span>
+      </div>
+      <nav class="side-nav">
+        <a href="#overview" class="side-link active">Vue d'ensemble</a>
+        <a href="#catalogSection" class="side-link">Catalogue</a>
+        <a href="#reservationsSection" class="side-link">Réservations</a>
+      </nav>
+      <div class="sidebar-foot">
+        <a href="./">&larr; Retour au site</a>
+        <button id="logoutBtn">Se déconnecter (<span id="userEmailLabel"></span>)</button>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <section class="admin-section" id="overview">
+        <h2>Vue d'ensemble</h2>
+        <div class="stat-row" id="statRow"></div>
+      </section>
+
+      <section class="admin-section" id="catalogSection">
+        <h2>Catalogue</h2>
+
+        <div class="panel">
+          <h3 id="formPanelTitle">Ajouter un article</h3>
+          <div class="add-form-grid">
+            <div class="form-field"><label>Catégorie</label>
+              <select id="f_category">
+                <option value="Téléphone">Téléphone</option>
+                <option value="Ordinateur">Ordinateur</option>
+                <option value="Montre connectée">Montre connectée</option>
+              </select>
+            </div>
+            <div class="form-field"><label>Marque</label><input id="f_brand" placeholder="Ex : Apple"></div>
+            <div class="form-field"><label>Modèle</label><input id="f_model" placeholder="Ex : iPhone 13"></div>
+            <div class="form-field"><label>Mémoire</label><input id="f_memoire" placeholder="Ex : 128Go"></div>
+            <div class="form-field"><label>Caractéristiques</label><input id="f_specs" placeholder="Ex : 128 Go"></div>
+            <div class="form-field"><label>État</label>
+              <select id="f_condition"><option value="Neuf">Neuf</option><option value="Reconditionné">Reconditionné</option><option value="Occasion">Occasion</option></select>
+            </div>
+            <div class="form-field"><label>Grade (si reconditionné)</label><input id="f_grade" placeholder="Ex : A"></div>
+            <div class="form-field"><label>Prix (FCFA)</label><input id="f_price" type="number" placeholder="Ex : 375000"></div>
+          </div>
+          <div class="photo-upload">
+            <label class="field-label">Photo de l'article</label>
+            <input type="file" id="f_photo" accept="image/*">
+            <img id="photoPreview" class="photo-preview" alt="Aperçu">
+          </div>
+          <div class="form-error" id="addError">Merci de remplir au moins la marque, le modèle et le prix.</div>
+          <div class="form-actions">
+            <button class="btn-primary" id="addPhoneBtn">Ajouter au catalogue</button>
+            <button class="small-btn" id="cancelEditBtn" type="button" hidden>Annuler la modification</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Catalogue actuel</h3>
+          <div class="table-wrap">
+            <table class="cat-table">
+              <thead>
+                <tr>
+                  <th>Photo</th>
+                  <th>Marque / Modèle</th>
+                  <th>Catégorie</th>
+                  <th>Prix</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="adminPhoneTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="admin-section" id="reservationsSection">
+        <h2>Réservations reçues</h2>
+        <div class="panel">
+          <div class="resv-list" id="adminResvList"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script>
+  var firebaseConfig = {
+    apiKey: "AIzaSyDBKdEwrmFrEiXtqaiyiBrF-mPzNYKRKk0",
+    authDomain: "jc-communication-7bd16.firebaseapp.com",
+    databaseURL: "https://jc-communication-7bd16-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "jc-communication-7bd16",
+    storageBucket: "jc-communication-7bd16.firebasestorage.app",
+    messagingSenderId: "148769259614",
+    appId: "1:148769259614:web:97994d2020d548e50ef4cf"
+  };
+  firebase.initializeApp(firebaseConfig);
+  var db = firebase.firestore();
+  var auth = firebase.auth();
+</script>
+<script>
+(function(){
+  "use strict";
+
+  var catalog = [];
+  var reservations = [];
+  var pendingPhotoData = "";
+  var editingId = null;
+  var editingImage = "";
+  var catalogUnsub = null, resvUnsub = null;
+
+  function fmtPrice(n){ return Number(n).toLocaleString("fr-FR").replace(/,/g," ") + " F"; }
+  function showToast(msg){
+    var t = document.getElementById("toast");
+    t.textContent = msg; t.classList.add("show");
+    setTimeout(function(){ t.classList.remove("show"); }, 3200);
+  }
+
+  // ---------- STORAGE (Firebase Firestore) ----------
+  function loadCatalog(){
+    var ref = db.collection("jcstore").doc("catalog");
+    return ref.get().then(function(doc){
+      if(doc.exists && doc.data().items){ catalog = doc.data().items; }
+      else { catalog = []; }
+    }).then(function(){
+      catalogUnsub = ref.onSnapshot(function(doc){
+        if(doc.exists && doc.data().items){
+          catalog = doc.data().items;
+          renderAdmin();
+        }
+      });
+    }).catch(function(err){ console.error(err); catalog = []; });
+  }
+  function saveCatalog(){
+    return db.collection("jcstore").doc("catalog").set({items: catalog}).catch(function(err){
+      console.error(err); showToast("Erreur de sauvegarde — réessayez.");
+    });
+  }
+  function loadReservations(){
+    var ref = db.collection("jcstore").doc("reservations");
+    return ref.get().then(function(doc){
+      reservations = (doc.exists && doc.data().items) ? doc.data().items : [];
+    }).then(function(){
+      resvUnsub = ref.onSnapshot(function(doc){
+        reservations = (doc.exists && doc.data().items) ? doc.data().items : [];
+        renderAdmin();
+      });
+    }).catch(function(err){ console.error(err); reservations = []; });
+  }
+  function saveReservations(){
+    return db.collection("jcstore").doc("reservations").set({items: reservations}).catch(function(err){
+      console.error(err); showToast("Erreur de sauvegarde — réessayez.");
+    });
+  }
+
+  // ---------- ÉCRAN DE CONNEXION : SCÈNE LAMPE ----------
+  var LampScene = (function(){
+    var gate = document.getElementById("loginGate");
+    var stage = document.getElementById("lampStage");
+    var head = document.getElementById("lampHead");
+    var cord = document.getElementById("cord");
+    var cordBtn = document.getElementById("cordBtn");
+    var card = document.getElementById("loginCard");
+    var beam = document.getElementById("sceneBeamCone");
+    var canvas = document.getElementById("dustCanvas");
+    var statusEl = document.getElementById("lampStatus");
+    var ctx = canvas.getContext("2d");
+
+    var JOINT = {x:196, y:84}, SHADE_LEN = 78, SHADE_HALF = 52, UNIT_W = 320;
+    var THRESHOLD = 24, MAX_PULL = 56;
+    var reduceMq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    var mobileMq = window.matchMedia("(max-width: 700px)");
+
+    var lit = false, active = false, bound = false, rafId = null, lastT = 0;
+    var spread = 30;               // demi-angle du faisceau, en degrés
+    var geo = null;                // géométrie courante (coordonnées relatives à la scène)
+    var particles = [], dpr = 1, W = 0, H = 0;
+    var pull = 0, dragging = false, moved = false, startY = 0, activePointer = null, ignoreClickUntil = 0;
+
+    function setPull(v){ pull = v; cord.style.setProperty("--pull", v); }
+
+    // --- géométrie : oriente l'abat-jour vers la carte et calcule le faisceau
+    function layout(){
+      if(!active) return;
+      var gr = gate.getBoundingClientRect();
+      if(!gr.width) return;
+      var sr = stage.getBoundingClientRect();
+      var cr = card.getBoundingClientRect();
+      var u = sr.width / UNIT_W;
+      var jx = sr.left + JOINT.x * u, jy = sr.top + JOINT.y * u;
+      var cx = cr.left + cr.width / 2, cy = cr.top + cr.height / 2;
+      var theta = Math.atan2(cx - jx, cy - jy) * 180 / Math.PI;
+      theta = Math.max(8, Math.min(62, theta));
+      var t = theta * Math.PI / 180, sn = Math.sin(t), cs = Math.cos(t);
+      head.setAttribute("transform", "translate(" + JOINT.x + " " + JOINT.y + ") rotate(" + (-theta) + ")");
+
+      function pt(lx, ly){
+        return {
+          x: sr.left + (JOINT.x + lx * cs + ly * sn) * u - gr.left,
+          y: sr.top + (JOINT.y - lx * sn + ly * cs) * u - gr.top
+        };
+      }
+      var mouth = pt(0, SHADE_LEN);
+      var a = pt(-SHADE_HALF, SHADE_LEN), b = pt(SHADE_HALF, SHADE_LEN);
+      var anchor = pt(-SHADE_HALF + 5, SHADE_LEN + 2);
+      cord.style.left = (anchor.x + gr.left - sr.left) + "px";
+      cord.style.top = (anchor.y + gr.top - sr.top) + "px";
+
+      geo = {
+        w: gr.width, h: gr.height, u: u,
+        d: {x: sn, y: cs}, n: {x: cs, y: -sn},
+        mouth: mouth, a: a, b: b,
+        L: Math.hypot(gr.width, gr.height) * 1.1
+      };
+      gate.style.setProperty("--mx", mouth.x + "px");
+      gate.style.setProperty("--my", mouth.y + "px");
+      gate.style.setProperty("--ax", (cx - gr.left) + "px");
+      gate.style.setProperty("--ay", (cy - gr.top) + "px");
+      gate.style.setProperty("--bl", geo.L + "px");
+      gate.style.setProperty("--card-angle", (Math.atan2(sn, -cs) * 180 / Math.PI) + "deg");
+      applyCone();
+      sizeCanvas();
+    }
+
+    function conePoints(alphaDeg){
+      var al = alphaDeg * Math.PI / 180, ca = Math.cos(al), sa = Math.sin(al);
+      var d = geo.d, n = geo.n, L = geo.L;
+      var d1 = {x: d.x * ca - n.x * sa, y: d.y * ca - n.y * sa};
+      var d2 = {x: d.x * ca + n.x * sa, y: d.y * ca + n.y * sa};
+      return [geo.a, {x: geo.a.x + d1.x * L, y: geo.a.y + d1.y * L}, {x: geo.b.x + d2.x * L, y: geo.b.y + d2.y * L}, geo.b];
+    }
+    function applyCone(){
+      if(!geo) return;
+      var s = "polygon(" + conePoints(spread).map(function(q){ return q.x.toFixed(1) + "px " + q.y.toFixed(1) + "px"; }).join(",") + ")";
+      beam.style.webkitClipPath = s;
+      beam.style.clipPath = s;
+    }
+
+    // --- poussières (canvas 2D, limitées au faisceau)
+    function sizeCanvas(){
+      var nd = Math.min(window.devicePixelRatio || 1, 2);
+      var nw = Math.round(geo.w), nh = Math.round(geo.h);
+      if(nd === dpr && nw === W && nh === H && particles.length) return;
+      dpr = nd; W = nw; H = nh;
+      canvas.width = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+      var count = mobileMq.matches ? 25 : 80;
+      particles = [];
+      for(var i = 0; i < count; i++){ var p = {}; spawn(p, true); particles.push(p); }
+    }
+    function spawn(p, initial){
+      var sp = Math.tan(spread * Math.PI / 180);
+      var maxR = geo.L * 0.6;
+      var r = 20 + Math.pow(Math.random(), 0.85) * maxR * 0.8;
+      var half = SHADE_HALF * geo.u + r * sp;
+      var lat = (Math.random() * 2 - 1) * half * 0.9;
+      p.x = geo.mouth.x + geo.d.x * r + geo.n.x * lat;
+      p.y = geo.mouth.y + geo.d.y * r + geo.n.y * lat;
+      p.vx = (Math.random() - 0.5) * 10;
+      p.vy = -2 - Math.random() * 8;
+      p.size = 0.5 + Math.random() * 1.3;
+      p.phase = Math.random() * Math.PI * 2;
+      p.speed = 0.6 + Math.random() * 1.4;
+      p.base = 0.25 + Math.random() * 0.55;
+      p.fade = initial ? 1 : 0;
+    }
+    function frame(ts){
+      rafId = requestAnimationFrame(frame);
+      var dt = Math.min((ts - lastT) / 1000, 0.05); lastT = ts;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      ctx.globalCompositeOperation = "lighter";
+      var d = geo.d, n = geo.n, m = geo.mouth, sp = Math.tan(spread * Math.PI / 180), maxR = geo.L * 0.62;
+      for(var i = 0; i < particles.length; i++){
+        var p = particles[i];
+        p.x += (p.vx + Math.sin(ts / 1000 * p.speed + p.phase) * 4) * dt;
+        p.y += (p.vy + Math.cos(ts / 1300 * p.speed + p.phase) * 3) * dt;
+        var vx = p.x - m.x, vy = p.y - m.y;
+        var r = vx * d.x + vy * d.y, lat = vx * n.x + vy * n.y;
+        var half = SHADE_HALF * geo.u + Math.max(r, 0) * sp;
+        if(r < 4 || r > maxR || Math.abs(lat) > half * 0.94){ spawn(p, false); continue; }
+        p.fade = Math.min(1, p.fade + dt * 0.8);
+        var a = p.base * (1 - r / maxR) * (0.6 + 0.4 * Math.sin(ts / 1000 * p.speed * 2 + p.phase)) * p.fade;
+        if(a < 0.02) continue;
+        ctx.fillStyle = "rgba(255,214,150," + a.toFixed(3) + ")";
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 6.2832); ctx.fill();
+      }
+    }
+    function startLoop(){
+      if(rafId || !lit || !active || !geo || reduceMq.matches || document.hidden) return;
+      lastT = performance.now();
+      rafId = requestAnimationFrame(frame);
+    }
+    function stopLoop(){ if(rafId){ cancelAnimationFrame(rafId); rafId = null; } }
+
+    // --- allumage
+    function turnOn(opts){
+      if(lit) return;
+      opts = opts || {};
+      lit = true;
+      setPull(0);
+      gate.classList.add("lit");
+      card.removeAttribute("inert");
+      cordBtn.disabled = true;
+      cordBtn.setAttribute("aria-label", "Lampe allumée");
+      statusEl.textContent = "Lampe allumée. Formulaire de connexion disponible.";
+      layout();
+      startLoop();
+      if(opts.focus){ setTimeout(function(){ focusEmail(0); }, 330); }
+    }
+    // la carte devient focusable à la fin de son délai d'affichage : on réessaie brièvement
+    function focusEmail(tries){
+      var el = document.getElementById("gateEmail");
+      if(!el) return;
+      el.focus();
+      if(document.activeElement !== el && tries < 20){ setTimeout(function(){ focusEmail(tries + 1); }, 150); }
+    }
+
+    // --- cordon : glisser vers le bas (au-delà du seuil) ou toucher
+    function onDown(e){
+      if(lit || (e.button != null && e.button !== 0)) return;
+      dragging = true; moved = false; startY = e.clientY; activePointer = e.pointerId;
+      cord.classList.remove("spring");
+      try{ cordBtn.setPointerCapture(e.pointerId); }catch(err){}
+    }
+    function onMove(e){
+      if(!dragging || e.pointerId !== activePointer) return;
+      var dy = e.clientY - startY;
+      if(Math.abs(dy) > 4) moved = true;
+      var v = Math.max(0, dy);
+      if(v > THRESHOLD) v = THRESHOLD + (v - THRESHOLD) * 0.35;   // effet élastique
+      setPull(Math.min(v, MAX_PULL));
+    }
+    function onUp(e){
+      if(!dragging || e.pointerId !== activePointer) return;
+      dragging = false; activePointer = null;
+      ignoreClickUntil = performance.now() + 400;
+      var fire = !moved || pull >= THRESHOLD;
+      cord.classList.add("spring");
+      if(fire && !moved){ setPull(28); setTimeout(function(){ setPull(0); }, 110); } else { setPull(0); }
+      if(fire) turnOn({focus:false});
+    }
+    function onCancel(){ dragging = false; activePointer = null; cord.classList.add("spring"); setPull(0); }
+    function onClick(){
+      if(lit || performance.now() < ignoreClickUntil) return;   // clavier / lecteur d'écran uniquement
+      cord.classList.add("spring"); setPull(28);
+      setTimeout(function(){ setPull(0); }, 120);
+      turnOn({focus:true});
+    }
+
+    function bind(){
+      bound = true;
+      cordBtn.addEventListener("pointerdown", onDown);
+      cordBtn.addEventListener("pointermove", onMove);
+      cordBtn.addEventListener("pointerup", onUp);
+      cordBtn.addEventListener("pointercancel", onCancel);
+      cordBtn.addEventListener("click", onClick);
+      var raf = 0;
+      window.addEventListener("resize", function(){
+        if(!active) return;
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(layout);
+      });
+      document.addEventListener("visibilitychange", function(){ if(document.hidden) stopLoop(); else startLoop(); });
+    }
+
+    function reset(){
+      lit = false;
+      gate.classList.remove("lit", "bright", "flicker");
+      card.classList.remove("shake");
+      card.setAttribute("inert", "");
+      cordBtn.disabled = false;
+      cordBtn.setAttribute("aria-label", "Allumer la lampe");
+      statusEl.textContent = "";
+      spread = 30;
+      cord.classList.remove("spring");
+      setPull(0);
+      stopLoop();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    return {
+      // appelé quand l'écran de connexion est affiché (aucune session ouverte)
+      show: function(){
+        active = true;
+        try{
+          if(!bound) bind();
+          reset();
+          layout();
+          requestAnimationFrame(layout);
+          if(document.fonts && document.fonts.ready){ document.fonts.ready.then(layout); }
+          if(reduceMq.matches){ turnOn({focus:false}); }   // mouvement réduit : lampe déjà allumée, sans particules
+        }catch(err){
+          console.error(err);
+          gate.classList.add("lit");                       // secours : le formulaire reste utilisable
+          card.removeAttribute("inert");
+        }
+      },
+      stop: function(){ active = false; stopLoop(); },
+      error: function(){
+        if(reduceMq.matches) return;
+        card.classList.remove("shake"); gate.classList.remove("flicker");
+        void card.offsetWidth;
+        card.classList.add("shake"); gate.classList.add("flicker");
+        setTimeout(function(){ card.classList.remove("shake"); gate.classList.remove("flicker"); }, 600);
+      },
+      success: function(){
+        spread = 46; applyCone();
+        gate.classList.add("bright");
+      }
+    };
+  })();
+
+  // ---------- LOGIN ----------
+  var loginGateEl = document.getElementById("loginGate");
+  var dashboardEl = document.getElementById("dashboardApp");
+  var gateForm = document.getElementById("gateForm");
+  var gateBtn = document.getElementById("gateSubmit");
+  var gateBtnLabel = gateBtn.querySelector(".btn-label");
+  var gateErr = document.getElementById("gateError");
+  var gateEmail = document.getElementById("gateEmail");
+  var gatePass = document.getElementById("gatePass");
+  var passToggle = document.getElementById("passToggle");
+  var loginAttempt = false;
+
+  function showGateError(msg){
+    gateErr.textContent = msg;
+    gateErr.style.display = "block";
+    gateEmail.setAttribute("aria-invalid", "true");
+    gatePass.setAttribute("aria-invalid", "true");
+  }
+  function hideGateError(){
+    gateErr.style.display = "none";
+    gateEmail.removeAttribute("aria-invalid");
+    gatePass.removeAttribute("aria-invalid");
+  }
+  function setGateState(state){
+    gateBtn.classList.toggle("is-loading", state === "loading");
+    gateBtn.classList.toggle("is-success", state === "success");
+    gateBtn.disabled = (state !== "idle");
+    gateBtnLabel.textContent = (state === "loading") ? "Connexion…" : "Se connecter";
+  }
+
+  passToggle.addEventListener("click", function(){
+    var reveal = gatePass.type === "password";
+    gatePass.type = reveal ? "text" : "password";
+    passToggle.setAttribute("aria-pressed", reveal ? "true" : "false");
+    passToggle.setAttribute("aria-label", reveal ? "Masquer le mot de passe" : "Afficher le mot de passe");
+  });
+
+  gateForm.addEventListener("submit", function(e){
+    e.preventDefault();
+    var email = gateEmail.value.trim();
+    var pass = gatePass.value;
+    if(!email || !pass){
+      showGateError("Merci de renseigner l'email et le mot de passe.");
+      LampScene.error();
+      return;
+    }
+    hideGateError();
+    setGateState("loading");
+    loginAttempt = true;
+    auth.signInWithEmailAndPassword(email, pass).catch(function(err){
+      console.error(err);
+      loginAttempt = false;
+      setGateState("idle");
+      showGateError("Email ou mot de passe incorrect.");
+      LampScene.error();
+    });
+  });
+
+  document.getElementById("logoutBtn").addEventListener("click", function(){
+    auth.signOut();
+  });
+
+  function openDashboard(animated){
+    LampScene.stop();
+    loginGateEl.classList.remove("show");
+    dashboardEl.style.display = "block";
+    if(animated) dashboardEl.classList.add("dash-enter");
+  }
+
+  auth.onAuthStateChanged(function(user){
+    document.getElementById("authChecking").style.display = "none";
+    if(user){
+      document.getElementById("userEmailLabel").textContent = user.email;
+      Promise.all([loadCatalog(), loadReservations()]).then(function(){ renderAdmin(); });
+      if(loginAttempt && loginGateEl.classList.contains("show")){
+        // connexion via le formulaire : coche, lumière élargie, puis tableau de bord
+        loginAttempt = false;
+        setGateState("success");
+        LampScene.success();
+        setTimeout(function(){ openDashboard(true); }, 700);
+      } else {
+        // session déjà ouverte : accès direct, sans animation
+        openDashboard(false);
+      }
+    } else {
+      loginAttempt = false;
+      dashboardEl.style.display = "none";
+      dashboardEl.classList.remove("dash-enter");
+      gatePass.value = "";
+      hideGateError();
+      setGateState("idle");
+      loginGateEl.classList.add("show");
+      LampScene.show();
+    }
+  });
+
+  // ---------- SIDEBAR MOBILE ----------
+  document.getElementById("menuToggle").addEventListener("click", function(){
+    document.getElementById("sidebar").classList.toggle("open");
+  });
+  document.querySelectorAll(".side-link").forEach(function(link){
+    link.addEventListener("click", function(){
+      document.querySelectorAll(".side-link").forEach(function(l){ l.classList.remove("active"); });
+      link.classList.add("active");
+      document.getElementById("sidebar").classList.remove("open");
+    });
+  });
+
+  // ---------- PHOTO UPLOAD ----------
+  document.getElementById("f_photo").addEventListener("change", function(e){
+    var file = e.target.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      var img = new Image();
+      img.onload = function(){
+        var maxW = 480;
+        var scale = Math.min(1, maxW / img.width);
+        var canvas = document.createElement("canvas");
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        var ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        pendingPhotoData = canvas.toDataURL("image/jpeg", 0.72);
+        var preview = document.getElementById("photoPreview");
+        preview.src = pendingPhotoData;
+        preview.style.display = "block";
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // ---------- ADMIN RENDER ----------
+  function statCard(n, label){ return '<div class="stat-card"><div class="n">' + n + '</div><div class="l">' + label + '</div></div>'; }
+
+  function renderAdmin(){
+    var total = catalog.length;
+    var neufs = catalog.filter(function(p){ return p.condition === "Neuf"; }).length;
+    var occasion = catalog.filter(function(p){ return p.condition !== "Neuf"; }).length;
+    document.getElementById("statRow").innerHTML =
+      statCard(total, "Articles au catalogue") +
+      statCard(neufs, "Neufs") +
+      statCard(occasion, "Reconditionnés / Occasion") +
+      statCard(reservations.length, "Réservations reçues");
+
+    var tbody = document.getElementById("adminPhoneTableBody");
+    tbody.innerHTML = "";
+    catalog.forEach(function(p){
+      var tr = document.createElement("tr");
+      var thumbHtml = p.image ? '<img src="' + p.image + '">' : '<div class="ph"></div>';
+      tr.innerHTML =
+        '<td class="thumb-cell">' + thumbHtml + '</td>' +
+        '<td class="name-cell"><div class="n">' + p.brand + ' ' + p.model + '</div><div class="b">' + p.specs + (p.grade ? " · grade " + p.grade : "") + '</div></td>' +
+        '<td>' + p.category + '</td>' +
+        '<td class="num">' + fmtPrice(p.price) + '</td>' +
+        '<td class="actions-cell">' +
+          '<button class="icon-btn edit" title="Modifier l\'article" data-edit="' + p.id + '">&#9998;</button>' +
+          '<button class="icon-btn" title="Retirer du catalogue" data-del="' + p.id + '">&times;</button>' +
+        '</td>';
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll("[data-edit]").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        enterEditMode(btn.getAttribute("data-edit"));
+      });
+    });
+    tbody.querySelectorAll("[data-del]").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var id = btn.getAttribute("data-del");
+        var phone = catalog.find(function(p){ return p.id === id; });
+        if(!phone) return;
+        if(!confirm("Retirer " + phone.brand + " " + phone.model + " du catalogue ?")) return;
+        catalog = catalog.filter(function(p){ return p.id !== id; });
+        saveCatalog().then(function(){ showToast("Article retiré."); });
+      });
+    });
+
+    var resvList = document.getElementById("adminResvList");
+    if(reservations.length === 0){
+      resvList.innerHTML = '<p class="empty-msg">Aucune réservation pour le moment.</p>';
+    } else {
+      resvList.innerHTML = "";
+      reservations.forEach(function(r){
+        var row = document.createElement("div");
+        row.className = "resv-row";
+        row.innerHTML =
+          '<div class="resv-top"><span class="nm">' + r.clientName + '</span><span class="resv-meta">' + r.date + '</span></div>' +
+          '<div class="resv-meta">' + r.phoneLabel + ' — <span class="num">' + r.clientPhone + '</span></div>' +
+          '<div class="resv-actions"><button class="small-btn" data-clear="' + r.id + '">Marquer traitée</button></div>';
+        resvList.appendChild(row);
+      });
+      resvList.querySelectorAll("[data-clear]").forEach(function(btn){
+        btn.addEventListener("click", function(){
+          var id = btn.getAttribute("data-clear");
+          reservations = reservations.filter(function(r){ return r.id !== id; });
+          saveReservations().then(function(){ showToast("Réservation marquée comme traitée."); });
+        });
+      });
+    }
+  }
+
+  // ---------- EDIT MODE ----------
+  function resetFormFields(){
+    ["f_brand","f_model","f_memoire","f_specs","f_grade","f_price"].forEach(function(id){
+      document.getElementById(id).value = "";
+    });
+    document.getElementById("f_category").value = "Téléphone";
+    document.getElementById("f_condition").value = "Neuf";
+    document.getElementById("f_photo").value = "";
+    document.getElementById("photoPreview").style.display = "none";
+    pendingPhotoData = "";
+  }
+  function enterEditMode(id){
+    var p = catalog.find(function(x){ return x.id === id; });
+    if(!p) return;
+    editingId = id;
+    editingImage = p.image || "";
+    pendingPhotoData = "";
+    document.getElementById("f_category").value = p.category;
+    document.getElementById("f_brand").value = p.brand;
+    document.getElementById("f_model").value = p.model;
+    document.getElementById("f_memoire").value = p.memoire || "";
+    document.getElementById("f_specs").value = p.specs === "—" ? "" : p.specs;
+    document.getElementById("f_condition").value = p.condition;
+    document.getElementById("f_grade").value = p.grade || "";
+    document.getElementById("f_price").value = p.price;
+    var preview = document.getElementById("photoPreview");
+    if(p.image){ preview.src = p.image; preview.style.display = "block"; } else { preview.style.display = "none"; }
+    document.getElementById("formPanelTitle").textContent = "Modifier l'article";
+    document.getElementById("addPhoneBtn").textContent = "Enregistrer les modifications";
+    document.getElementById("cancelEditBtn").hidden = false;
+    document.getElementById("formPanelTitle").scrollIntoView({behavior:"smooth", block:"center"});
+  }
+  function exitEditMode(){
+    editingId = null;
+    editingImage = "";
+    document.getElementById("formPanelTitle").textContent = "Ajouter un article";
+    document.getElementById("addPhoneBtn").textContent = "Ajouter au catalogue";
+    document.getElementById("cancelEditBtn").hidden = true;
+    resetFormFields();
+  }
+  document.getElementById("cancelEditBtn").addEventListener("click", exitEditMode);
+
+  // ---------- ADD / UPDATE PRODUCT ----------
+  document.getElementById("addPhoneBtn").addEventListener("click", function(){
+    var category = document.getElementById("f_category").value;
+    var brand = document.getElementById("f_brand").value.trim();
+    var model = document.getElementById("f_model").value.trim();
+    var memoire = document.getElementById("f_memoire").value.trim();
+    var specs = document.getElementById("f_specs").value.trim();
+    var condition = document.getElementById("f_condition").value;
+    var grade = document.getElementById("f_grade").value.trim();
+    var price = parseInt(document.getElementById("f_price").value, 10);
+
+    if(!brand || !model || isNaN(price) || price <= 0){
+      document.getElementById("addError").style.display = "block"; return;
+    }
+    document.getElementById("addError").style.display = "none";
+
+    if(editingId){
+      var existing = catalog.find(function(x){ return x.id === editingId; });
+      if(!existing){ exitEditMode(); return; }
+      existing.category = category;
+      existing.brand = brand;
+      existing.model = model;
+      existing.memoire = memoire || "";
+      existing.specs = specs || "—";
+      existing.condition = condition;
+      existing.grade = condition === "Reconditionné" ? grade : "";
+      existing.price = price;
+      existing.image = pendingPhotoData || editingImage || "";
+
+      saveCatalog().then(function(){
+        exitEditMode();
+        showToast("Article modifié.");
+      });
+      return;
+    }
+
+    catalog.push({
+      id: "p" + Date.now(), category: category, brand: brand, model: model,
+      memoire: memoire || "", specs: specs || "—",
+      condition: condition, grade: condition === "Reconditionné" ? grade : "",
+      price: price, image: pendingPhotoData
+    });
+
+    saveCatalog().then(function(){
+      resetFormFields();
+      showToast("Article ajouté au catalogue.");
+    });
+  });
+
+})();
+</script>
+</body>
+</html>
